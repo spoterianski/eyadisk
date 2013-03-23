@@ -17,7 +17,8 @@ Installation
 
 Install using distribute:
 
-    easy_install eyadisk
+    python setup.py install
+
 
 Quick Start
 -----------
