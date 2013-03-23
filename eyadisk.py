@@ -6,71 +6,6 @@ import BaseHTTPServer
 from cStringIO import StringIO
 from collections import namedtuple
 
-"""
-the Bobuk code
-"""
-OAYR = "https://oauth.yandex.ru/"
-class EYaRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
-    def do_GET(self):
-        parsed = urlparse.parse_qs(urlparse.urlparse(self.path).query)
-        if "code" in parsed:
-            YploadRequestHandler._code = parsed["code"][0]
-        self.wfile.write("HTTP/1.0 200 OK")
-        self.send_header("Date", self.date_time_string())
-        self.send_header("Server", self.version_string())
-        self.send_header("Content-Type", "text/html")
-        self.end_headers()
-        self.wfile.write("<html><body>\n")
-        self.wfile.write("<script>" +
-                         "var win = window.open('', '_self');win.close();" +
-                         "</script>\n")
-        self.wfile.write("Your code is %s" % EYaRequestHandler._code)
-        self.wfile.write("</body></html>\n")
-        self.finish()
-
-def getKey(YD_APP_ID, YD_APP_SECRET, keyfile):
-    if os.path.isfile(keyfile):
-        return open(keyfile, 'r').read()
-    import webbrowser
-    webbrowser.open_new(
-        OAYR + 'authorize?response_type=code&client_id=' + YD_APP_ID)
-
-    EYaRequestHandler._code = None
-    httpd = BaseHTTPServer.HTTPServer(('', 8714), EYaRequestHandler)
-    httpd.handle_request()
-
-    if EYaRequestHandler._code:
-        code = EYaRequestHandler._code
-    else:
-        code = raw_input('Input your code: ').strip()
-
-    res = requests.post(OAYR + 'token', data=dict(
-        grant_type='authorization_code',
-        code=code,
-        client_id=YD_APP_ID, client_secret=YD_APP_SECRET
-    ))
-    if res.status_code != 200:
-        raise Exception('Wrong code')
-    key = res.json['access_token']
-    with open(keyfile, 'w') as fl:
-        fl.write(key)
-    return key
-
-class LoginAPI:
-    MP = "https://login.yandex.ru/info?format=json"
-
-    def __init__(self, key):
-        self.key = "OAuth " + key
-
-    def getInfo(self):
-        rq = requests.get(self.MP, headers={
-            'Authorization': self.key,
-        })
-        return rq.json
-
-"""
-my code
-"""
 class EYaDisk(object):
     webdav_url = "webdav.yandex.ru"
     File = namedtuple('File', ['name', 'size', 'mtime', 'ctime'])
@@ -140,6 +75,19 @@ class EYaDisk(object):
         resp = self.request('POST', '/%s' % path + '?publish')
         if resp['status'] != 302:
             raise Exception('Wtf?')
+        location = ''
+        for key, v in resp['headers']:
+            if key == 'location':
+                location = v
+                break
+        return location
+
+
+
+    # unpublish file
+    def unpublish(self, path):
+        self._set_headers('common')
+        resp = self.request('POST', '/%s' % path + '?unpublish')
 
     # create directory on  server
     def mkdir(self, folder):
@@ -209,5 +157,6 @@ class EYaDisk(object):
         response = conn.getresponse()
         status = response.status
         data = response.read()
+        headers = response.getheaders()
         conn.close()
-        return {'status':status, 'data':data }
+        return {'status':status, 'data':data, 'headers':headers }
