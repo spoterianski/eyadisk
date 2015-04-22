@@ -96,18 +96,11 @@ class EYaDisk(object):
 
     # create dirs on server (aka mkdir -p)
     def mkdirs(self, path):
-        dirs = [d for d in path.split('/') if d]
-        if not dirs:
-            return
-        if path.startswith('/'):
-            dirs[0] = '/' + dirs[0]
-        old_cwd = self.cwd
-        try:
-            for dir in dirs:
-                self.mkdir(dir)
-                self.cd(dir)
-        finally:
-            self.cd(old_cwd)
+        dirs = path.strip('/').split('/')
+        path = ''
+        for i in range(len(dirs)):
+            path = path + '/' + dirs[i]
+            self.mkdir_dir(path)
 
     # helper for mkdirs - make path on server
     def cd(self, path):
